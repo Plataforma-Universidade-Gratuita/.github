@@ -1,157 +1,144 @@
-# PUG Docs — Plataforma Universidade Gratuita (PUG)
+# PUG Platform Documentation
 
-> Repositório: `pug-docs`  
-> Escopo: *briefing* de produto, visão de arquitetura e restrições operacionais da plataforma de controle de horas do Universidade Gratuita.
+> 📚 Initial root overview
 
----
+`pug-docs` is the documentation entry point for the PUG platform created for the **[Programa Universidade Gratuita](https://universidadegratuita.sc.gov.br/)**. At a high level, the platform supports the management of counterpart hours by connecting the educational institution, former students, partner entities, and the shared backend services behind the program workflows.
 
-## 1) O que é
+The official Universidade Gratuita program is a State of Santa Catarina initiative focused on access to higher education, with a counterpart model in which supported students give back through supervised hours in their area of study. This project documents the software ecosystem used to manage that operational flow.
 
-Plataforma multiaplicativo para registrar, validar e auditar horas de contrapartida exigidas pelo **Universidade Gratuita** de Santa Catarina. Conecta três atores:
+## 🎯 What This Documentation Covers
 
-- **Administradores institucionais**: configuram entidades, projetos, alocações e relatórios.
-- **Estudantes (beneficiários)**: aderem a projetos, acompanham progresso, geram QR de presença.
-- **Parceiros (entidades/empresas)**: aceitam alunos e validam presenças.
+This repository currently documents the parts of the platform that already have written technical material:
 
-Entrega alvo: **1º dez 2025**.
+- `pug-service` as the shared backend service
+- `pug-web-admin` as the institutional backoffice
+- `pug-mocks` as the optional mock backend for local integration work
 
----
+The mobile applications are already part of the overall platform context, but detailed documentation for them is still pending and will be added later:
 
-## 2) Por que existe
+- `mobile-student`
+- `mobile-partner`
 
-- Substituir controle manual por presenças verificáveis com QR, geolocalização e horário.
-- Prover fonte única de verdade para conformidade e relatórios.
-- Oferecer fluxos móveis simples com progresso e prazos claros.
+## 🏗️ High-Level Architecture
 
----
+The platform is organized around a shared backend and multiple user-facing applications:
 
-## 3) Objetivos
+- the **educational institution** operates through the backoffice
+- **former students** use the student mobile app to manage their own counterpart hours and enroll in projects
+- **partner entities** use the partner mobile app to manage projects and the former students linked to those projects
+- the **backend services** centralize business rules, records, authentication, and operational workflows
+- the **mock backend** supports local development and integration work when the full backend is not needed
 
-### Primários
-- Acompanhar horas requeridas vs. concluídas por aluno e por projeto.
-- Aplicar controle de acesso por papel e autenticação externa.
-- Gerar relatórios auditáveis em XLSX/PDF.
+```mermaid
+flowchart LR
+    Institution[Educational institution]
+    Students[Former students]
+    Partners[Partner entities]
 
-### Secundários
-- Reduzir carga administrativa.
-- Melhorar transparência e notificações entre atores.
-- Atender LGPD e normas institucionais.
+    WebAdmin[web-admin]
+    MobileStudent[mobile-student]
+    MobilePartner[mobile-partner]
 
----
+    Service[pug-service]
+    Mocks[pug-mocks]
 
-## 4) Resultados esperados
+    Institution --> WebAdmin
+    Students --> MobileStudent
+    Partners --> MobilePartner
 
-- **Operacional**: alunos comprovam horas no prazo; parceiros validam rápido; admins monitoram portfólio com filtros e exportações.
-- **Conformidade**: trilhas à prova de violação (quem, quando, onde).
-- **Escalabilidade**: inclusão de novos projetos, entidades e turmas sem mudanças estruturais.
-- **Confiabilidade**: ≥99,5% de *uptime* e P95 de API < 500 ms em carga normal.
+    WebAdmin --> Service
+    MobileStudent --> Service
+    MobilePartner --> Service
 
----
+    WebAdmin -. local integration .-> Mocks
+    MobileStudent -. local integration .-> Mocks
+    MobilePartner -. local integration .-> Mocks
+```
 
-## 5) Escopo do produto
+## 🔄 How The Repositories Connect
 
-### No escopo
-- Portais por papel: Admin (web), Estudante (mobile), Parceiro (mobile).
-- Jornada do estudante: buscar projetos, solicitar adesão, participar, acompanhar, sair se necessário.
-- Jornada do parceiro: aceitar/negar, expulsar, validar presenças, acompanhar horas.
-- Admin: CRUD de entidades/projetos/cursos/áreas, alocações, análises, exportações.
-- Validação de presença: **QR code + localização + timestamp**.
-- Notificações de adesão/aceite/expulsão/saída e marcos.
-- Exportações (XLSX/PDF) para alunos, parceiros e admins.
+From the current documentation set, the system relationship is straightforward:
 
-### Fora do escopo (v1)
-- Acompanhamento pós-colação além das regras do programa.
-- Programas não-UG ou outros estados.
-- Upload de arquivos.
-- Projetos 100% remotos baseados só em entregáveis sem validação de presença.
-- Deploy em PRD.
-- Manutenção do código pós entrega da v1.
+1. `pug-web-admin` provides the operational interface used by the educational institution.
+2. `pug-service` exposes the shared business API and concentrates the main platform domains, including identity, academic records, partner management, projects, enrollments, attendances, and completed-hour tracking.
+3. `pug-mocks` mirrors the backend contract for local integration scenarios.
+4. The mobile applications fit into the same platform flow:
+   - `mobile-student` is the former-student experience
+   - `mobile-partner` is the partner-entity experience
 
----
+The current repository documentation is strongest around the backend, the admin application, and the mock backend. Mobile documentation will be expanded as those materials are added.
 
-## 6) Arquitetura do sistema
+## 📦 Repository Guide
 
-- **Aplicativos**:
-  - Web (Admin): Next.js 15, React LTS, TypeScript, Tailwind, Shadcn UI, Zustand, TanStack Query, Zod, i18next, Jest, Sonner.
-  - Mobile (Aluno, Parceiro): Expo, React Native, TypeScript, Zustand e contrapartes compatíveis das outras *libs* da versão web.
-- **Serviços**: Java 21 + Quarkus (REST), Hibernate ORM Panache, Bean Validation, SmallRye OpenAPI.
-- **Dados**: PostgreSQL (primário), MongoDB (sessões, aceite de termos, auditorias).
-- **Migrações/Docs/Testes**: Flyway, Javadoc, TSDoc, JUnit, Mockito, Postman.
-- **Segurança**: JWT.
+### `pug-service`
 
----
+The backend service for the platform. It centralizes authentication, academic data, partner entities, projects, enrollments, attendances, audit logging, and counterpart-hour tracking.
 
-## 7) Modelo de dados (alto nível)
+- Documentation: [pug-service docs](./pug-service/README.md)
+- Repository README: [pug-service](https://github.com/Plataforma-Universidade-Gratuita/pug-service/blob/main/README.md)
 
-- **Usuários** com **papéis**: `ADMIN`, `FORMER_STUDENT`, `PARTNER`.
-- **Estudantes** vinculados a **cursos**, com **cotas de horas** e datas de início/vencimento.
-- **Entidades** em **cidades**; **staff** representam entidades.
-- **Projetos** pertencem a entidades e áreas; podem ter **alocações** de horas e **locais**.
-- **Matrículas** ligam aluno↔projeto com estados: `PENDING`, `ACCEPTED`, `DENIED`, `CONCLUDED`, `EXITED`, `REMOVED`.
-- **Presenças** vinculadas à matrícula com duração, geolocalização, hash do QR e status: `PENDING`, `VALIDATED`, `REJECTED`.
+### `pug-web-admin`
 
----
+The backoffice used by the educational institution. It provides the operational web interface for the same major domains exposed by the backend service.
 
-## 8) Fluxos principais
+- Documentation: [pug-web-admin docs](./pug-web-admin/README.md)
+- Repository README: [pug-web-admin](https://github.com/Plataforma-Universidade-Gratuita/pug-web-admin/blob/main/README.md)
 
-- **Aluno**: descobre projetos elegíveis → solicita → é aceito → participa → gera QR no local → parceiro valida → progresso atualiza → exporta relatório final.
-- **Parceiro**: analisa solicitações → aceita/nega → valida presenças via QR → monitora horas → exporta relatório por projeto.
-- **Admin**: cria entidades/projetos/alocações → monitora indicadores com filtros → exporta relatórios agregados.
+### `pug-mocks`
 
----
+An optional mock backend used for local development and integration work. It mirrors the main API contract with in-memory data and simplified auth behavior.
 
-## 9) Requisitos não funcionais
+- Documentation: [pug-mocks docs](./pug-mocks/README.md)
+- Repository README: [pug-mocks](https://github.com/Plataforma-Universidade-Gratuita/pug-mocks/blob/main/README.md)
 
-- Acessibilidade WCAG 2.1 AA.
-- Disponibilidade ≥99,5% mensal.
-- Latência de API P95 ≤ 500 ms.
-- Escalabilidade horizontal.
-- Cobertura de testes ≥80% (backend).
-- Versionamento de API com SemVer.
-- Contêineres para portabilidade de deploy.
-- LGPD: consentimento, minimização, criptografia em repouso e trânsito, exclusão sob solicitação.
+### `mobile-student`
 
----
+The mobile app for former students. Its role in the platform is to let former students manage their own counterpart hours and subscribe to projects.
 
-## 10) Segurança
+- Detailed documentation in `pug-docs`: not available yet
+- Repository: [pug-mobile-student](https://github.com/Plataforma-Universidade-Gratuita/pug-mobile-student)
+- Repository README: not available in the current workspace
 
-- RBAC + validação de login externo.
-- JWT com access tokens de curta duração e refresh quando aplicável.
-- Validação estrita de entrada (Bean Validation/Zod).
-- CSP, sanitização anti-XSS, statements preparados via ORM.
-- Rate limiting e proteção contra DoS em endpoints públicos.
-- Mobile: armazenamento seguro de tokens (Keychain/Keystore) e checagens de integridade.
+### `mobile-partner`
 
----
+The mobile app for partner entities. Its role in the platform is to let partner organizations manage projects and the former students subscribed to them.
 
-## 11) Relatórios
+- Detailed documentation in `pug-docs`: not available yet
+- Repository: [pug-mobile-partner](https://github.com/Plataforma-Universidade-Gratuita/pug-mobile-partner)
+- Repository README: not available in the current workspace
 
-- Alunos: declaração de conclusão (XLSX/PDF).
-- Parceiros: presenças e progresso por projeto.
-- Admins: idem + estados incompletos e análises do portfólio.
+## 🧭 Current Documentation Structure
 
----
+```text
+pug-docs/
+├── README.md
+├── pug-mocks/
+│   └── README.md
+├── pug-service/
+│   ├── README.md
+│   ├── DEVELOPMENT.md
+│   ├── ARCHITECTURE.md
+│   ├── TESTS.md
+│   ├── CICD.md
+│   ├── shared/
+│   ├── geo/
+│   ├── identity/
+│   ├── partner/
+│   ├── academic/
+│   └── project/
+└── pug-web-admin/
+    ├── README.md
+    ├── DEVELOPMENT.md
+    ├── ARCHITECTURE.md
+    └── CICD.md
+```
 
-## 12) Glossário
+## 🔗 Start Here
 
-- **Horas de contrapartida**: serviço à comunidade devido por beneficiários.
-- **Alocação**: bloco de horas ofertadas atrelado a projeto e janela temporal.
-- **Presença**: registro validado de participação com duração e geodados.
+- [pug-service documentation](./pug-service/README.md)
+- [pug-web-admin documentation](./pug-web-admin/README.md)
+- [pug-mocks documentation](./pug-mocks/README.md)
 
----
+## 📝 Note
 
-## 13) Referências
-
-- Requisitos: “Plataforma de Gerenciamento de Horas” (documento interno, mais antigo e menos atualizado).
-- ER e enums: [DER](./assets/PUG_MER.png) e [notas de esquema](./assets/PUG_MER.txt).
-- Arquitetura de sistema: [System Architecture](./assets/PUG-System-Architecture.png)
-
----
-
-## 14) Licença e titularidade
-
-Software institucional para operações do UG. Licenciamento e distribuição conforme política da instituição contratante.
-
----
-
-> Documento vivo. Atualize com mudanças de esquema, fluxos ou políticas.
+This is an initial root overview for the platform documentation. It is meant to orient new readers across the main repositories and system roles before they dive into repository-specific material. More detailed documentation for the mobile applications will be added later.
